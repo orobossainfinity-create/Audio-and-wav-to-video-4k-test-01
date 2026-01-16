@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxury Video Creator – Mobile Safe</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Great+Vibes&display=swap');
+
+    body {
+      background:#000;
+      color:#ffd700;
+      font-family:'Cinzel Decorative', cursive;
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow-x:hidden;
+      position:relative;
+      margin:0;
+    }
+
+    .particles { position:fixed; inset:0; pointer-events:none; z-index:1; background: radial-gradient(circle at top, #000033, #000000 60%); }
+
+    .particle {
+      position:absolute;
+      background:linear-gradient(135deg,#ffd700,#ffea00,#ffd700,#fff,#ffd700);
+      border-radius:50%;
+      box-shadow:0 0 10px #ffea00, 0 0 20px #ffd700;
+      opacity:0;
+      animation:twinkle 6s infinite ease-in-out, drift 35s infinite linear;
+    }
+
+    @keyframes twinkle { 0%,100% { opacity:0; transform:scale(0.5); } 50% { opacity:0.8; transform:scale(1); } }
+    @keyframes drift { 0% { transform:translateY(100vh); } 100% { transform:translateY(-30vh); } }
+
+    .container {
+      position:relative;
+      z-index:10;
+      background:rgba(0,0,0,0.75);
+      border:2px solid #d4af37;
+      border-radius:25px;
+      padding:35px 25px;
+      max-width:650px;
+      text-align:center;
+    }
+
+    h1 { font-family:'Great Vibes', cursive; font-size:3.5rem; margin-bottom:15px; text-shadow:0 0 20px #ffd700; }
+
+    .warning, .tip { background:rgba(139,0,0,0.4); border:1px solid #ff4040; border-radius:10px; padding:10px; margin:12px 0; font-size:1rem; }
+
+    .tip { background:rgba(0,139,0,0.3); border-color:#0f0; }
+
+    input[type="text"] { width:100%; padding:12px; margin:10px 0; background:rgba(255,215,0,0.08); color:#ffd700; border:1px solid #d4af37; border-radius:10px; font-size:1.1rem; }
+
+    select { width:100%; padding:10px; margin:8px 0; background:rgba(255,215,0,0.08); color:#ffd700; border:1px solid #d4af37; border-radius:10px; }
+
+    button {
+      background:linear-gradient(135deg,#d4af37,#b8860b);
+      color:#000;
+      border:none;
+      padding:14px 40px;
+      font-size:1.3rem;
+      border-radius:40px;
+      cursor:pointer;
+      margin:20px 0 10px;
+      box-shadow:0 0 20px #ffd700;
+    }
+
+    #status { margin:15px 0; font-size:1.3rem; min-height:2em; }
+
+    .progress-container {
+      width:100%;
+      background:#111;
+      border-radius:40px;
+      height:24px;
+      margin:15px 0;
+      overflow:hidden;
+      border:2px solid #d4af37;
+      display:none;
+    }
+
+    .progress-bar {
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ffd700,#ffea00);
+      transition:width 0.6s ease;
+    }
+
+    #download { display:none; margin-top:25px; padding:14px 40px; background:linear-gradient(135deg,#d4af37,#b8860b); color:#000; text-decoration:none; border-radius:40px; font-size:1.3rem; box-shadow:0 0 20px #ffd700; }
+  </style>
+</head>
+<body>
+
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <h1>Luxury Creator</h1>
+    <p>Use **URLs** on cheap phones to avoid crashes</p>
+
+    <div class="warning">
+      ⚠️ Low-end phone? File picker often crashes. Use URLs instead!
+    </div>
+
+    <div class="tip">
+      Tip: Upload image to Imgur.com/upload → right-click → "Copy image address"<br>
+      Audio: Catbox.moe or similar free host → copy direct link
+    </div>
+
+    <label class="file-label">Image URL (required)</label>
+    <input type="text" id="imageUrl" placeholder="https://i.imgur.com/abc123.jpg">
+
+    <label class="file-label">Audio URL (WAV or MP3)</label>
+    <input type="text" id="audioUrl" placeholder="https://example.com/song.mp3">
+
+    <div class="settings">
+      <label for="resolution">Resolution (start low!):</label>
+      <select id="resolution">
+        <option value="480" selected>480p – Fastest & safest on phone</option>
+        <option value="720">720p – Try if 480p works</option>
+      </select>
+
+      <label for="quality">Speed vs Quality:</label>
+      <select id="quality">
+        <option value="ultrafast" selected>Ultrafast (lowest memory)</option>
+        <option value="superfast">Superfast</option>
+      </select>
+    </div>
+
+    <button onclick="convert()">Begin Enchantment</button>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div id="status"></div>
+
+    <a id="download">Download Video</a>
+  </div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js';
+    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const status = document.getElementById('status');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const downloadLink = document.getElementById('download');
+
+    async function convert() {
+      status.textContent = 'Starting...';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '5%'; // Show bar FIRST thing
+
+      const ffmpeg = new FFmpeg({ log: true });
+
+      try {
+        status.textContent = 'Loading engine... (may take 30–120s on phone)';
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        });
+
+        progressBar.style.width = '20%';
+        status.textContent = 'Fetching your files from URLs...';
+
+        const imageUrl = document.getElementById('imageUrl').value.trim();
+        const audioUrl = document.getElementById('audioUrl').value.trim();
+        if (!imageUrl || !audioUrl) throw new Error('Enter both URLs!');
+
+        const imageResp = await fetch(imageUrl);
+        const audioResp = await fetch(audioUrl);
+        if (!imageResp.ok || !audioResp.ok) throw new Error('Invalid URLs – check links.');
+
+        const imageData = new Uint8Array(await imageResp.arrayBuffer());
+        const audioData = new Uint8Array(await audioResp.arrayBuffer());
+        const audioExt = audioUrl.split('.').pop().toLowerCase() || 'mp3';
+
+        await ffmpeg.writeFile('input.jpg', imageData);
+        await ffmpeg.writeFile(`input.${audioExt}`, audioData);
+
+        progressBar.style.width = '35%';
+        status.textContent = 'Encoding... (can take 10–60+ min – keep app open!)';
+
+        const res = document.getElementById('resolution').value;
+        const qual = document.getElementById('quality').value;
+
+        let w = res === '480' ? 854 : 1280;
+        let h = res === '480' ? 480 : 720;
+
+        await ffmpeg.exec([
+          '-loop', '1',
+          '-i', 'input.jpg',
+          '-i', `input.${audioExt}`,
+          '-c:v', 'libx264',
+          '-crf', '28', // high compression
+          '-preset', qual,
+          '-vf', `scale=\( {w}: \){h}:force_original_aspect_ratio=decrease,pad=\( {w}: \){h}:(ow-iw)/2:(oh-ih)/2`,
+          '-c:a', 'aac',
+          '-b:a', '96k',
+          '-shortest',
+          '-y',
+          'out.mp4'
+        ]);
+
+        progressBar.style.width = '100%';
+        status.textContent = 'Done! Downloading...';
+
+        const data = await ffmpeg.readFile('out.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+
+        downloadLink.href = url;
+        downloadLink.download = 'video.mp4';
+        downloadLink.style.display = 'block';
+        downloadLink.click();
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = 'Failed: ' + (err.message.includes('memory') ? 'Memory too low – try tiny files or desktop' : err.message);
+        progressBar.style.background = '#c00';
+      }
+    }
+
+    window.convert = convert;
+  </script>
+</body>
+  </html>
