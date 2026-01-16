@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxury Image + Audio to Video Converter</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Great+Vibes&display=swap');
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background:#000;
+      color:#ffd700;
+      font-family:'Cinzel Decorative', cursive;
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow-x:hidden;
+      position:relative;
+    }
+
+    .particles { position:fixed; inset:0; pointer-events:none; z-index:1; background: radial-gradient(circle at top, #000033, #000000 60%); }
+
+    .particle {
+      position:absolute;
+      background:linear-gradient(135deg,#ffd700,#ffea00,#ffd700,#fff,#ffd700);
+      border-radius:50%;
+      box-shadow:0 0 10px #ffea00, 0 0 20px #ffd700, 0 0 30px rgba(255,215,0,0.3);
+      opacity:0;
+      animation:twinkle 5s infinite ease-in-out, drift 30s infinite linear;
+    }
+
+    @keyframes twinkle { 0%,100% { opacity:0; transform:scale(0.6) rotate(0deg); } 50% { opacity:1; transform:scale(1.1) rotate(180deg); } }
+    @keyframes drift { 0% { transform:translate(0,100vh); } 100% { transform:translate(0,-20vh); } }
+
+    .container {
+      position:relative;
+      z-index:10;
+      background:rgba(0,0,0,0.7);
+      backdrop-filter:blur(15px);
+      border:2px solid #d4af37;
+      border-radius:30px;
+      padding:40px;
+      max-width:720px;
+      text-align:center;
+      box-shadow:0 0 60px rgba(255,215,0,0.6);
+    }
+
+    h1 { font-family:'Great Vibes', cursive; font-size:3.8rem; margin-bottom:20px; text-shadow:0 0 30px #ffd700; }
+
+    .warning { background:rgba(139,0,0,0.4); border:1px solid #ff4040; border-radius:12px; padding:12px; margin:15px 0; font-size:1.1rem; }
+
+    button { 
+      background:linear-gradient(135deg,#d4af37,#b8860b);
+      color:#000;
+      border:none;
+      padding:16px 50px;
+      font-size:1.4rem;
+      font-weight:bold;
+      border-radius:50px;
+      cursor:pointer;
+      margin:25px 0 10px;
+      box-shadow:0 0 25px #ffd700;
+    }
+
+    button:hover { transform:scale(1.08); }
+
+    #status { margin:20px 0; font-size:1.4rem; min-height:2em; }
+
+    .progress-container {
+      width:100%;
+      max-width:480px;
+      background:#111;
+      border-radius:50px;
+      height:26px;
+      margin:0 auto 25px;
+      overflow:hidden;
+      border:2px solid #d4af37;
+      display:none;
+    }
+
+    .progress-bar {
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ffd700,#ffea00,#ffd700);
+      transition:width 0.5s ease;
+      box-shadow:0 0 20px #ffea00 inset;
+      position:relative;
+    }
+
+    .progress-bar::after {
+      content:'';
+      position:absolute;
+      inset:0 -100% 0 0;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent);
+      animation:shineBar 3s infinite linear;
+    }
+
+    @keyframes shineBar { 0% { transform:translateX(-100%); } 100% { transform:translateX(300%); } }
+
+    #download { display:none; margin-top:30px; padding:16px 50px; background:linear-gradient(135deg,#d4af37,#b8860b); color:#000; text-decoration:none; border-radius:50px; font-size:1.4rem; font-weight:bold; box-shadow:0 0 25px #ffd700; }
+
+    #download:hover { transform:scale(1.05); }
+  </style>
+</head>
+<body>
+
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <h1>Luxury Video Creator</h1>
+    <p>Image + Audio (WAV/MP3) → High Quality Video</p>
+
+    <div class="warning" id="mobileWarning" style="display:none;">
+      ⚠️ You're on mobile — high-quality 4K may fail due to memory limits.<br>
+      Try smaller files or use a computer for best results!
+    </div>
+
+    <label class="file-label">Select Image</label>
+    <input type="file" id="image" accept="image/*">
+
+    <label class="file-label">Select Audio (WAV or MP3)</label>
+    <input type="file" id="audio" accept=".wav,.mp3">
+
+    <button onclick="convert()">Begin Enchantment</button>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div id="status"></div>
+
+    <a id="download">Download Your Creation</a>
+  </div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js';
+    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const status = document.getElementById('status');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const downloadLink = document.getElementById('download');
+    const mobileWarning = document.getElementById('mobileWarning');
+
+    // Show warning on mobile
+    if (/Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      mobileWarning.style.display = 'block';
+    }
+
+    function createParticles() {
+      const container = document.getElementById('particles');
+      for (let i = 0; i < 120; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = Math.random() * 5 + 2;
+        p.style.width = p.style.height = `${size}px`;
+        p.style.left = `${Math.random() * 100}vw`;
+        p.style.top = `${Math.random() * 120}vh`;
+        p.style.animationDelay = `${Math.random() * 12}s`;
+        container.appendChild(p);
+      }
+    }
+    createParticles();
+
+    async function convert() {
+      status.textContent = 'Starting...';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '5%';
+
+      const ffmpeg = new FFmpeg({ log: true });
+
+      try {
+        status.textContent = 'Loading engine... (may take 10–30s)';
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        });
+
+        progressBar.style.width = '20%';
+        status.textContent = 'Processing files...';
+
+        const image = document.getElementById('image').files[0];
+        const audio = document.getElementById('audio').files[0];
+        if (!image || !audio) throw new Error('Please select both files.');
+
+        const audioExt = audio.name.split('.').pop().toLowerCase();
+        await ffmpeg.writeFile('img.jpg', await fetchFile(image));
+        await ffmpeg.writeFile(`aud.${audioExt}`, await fetchFile(audio));
+
+        progressBar.style.width = '35%';
+        status.textContent = 'Encoding video... (lighter settings for mobile)';
+
+        const progressInt = setInterval(() => {
+          let w = parseFloat(progressBar.style.width);
+          if (w < 85) progressBar.style.width = `${w + Math.random()*12 + 4}%`;
+        }, 3000);
+
+        // Lighter settings: fast preset, 1080p fallback if needed, good quality but not lossless
+        await ffmpeg.exec([
+          '-loop', '1', '-i', 'img.jpg',
+          '-i', `aud.${audioExt}`,
+          '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+          '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease:flags=lanczos,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
+          '-c:a', 'aac', '-b:a', '192k',
+          '-shortest', '-y', 'out.mp4'
+        ]);
+
+        clearInterval(progressInt);
+        progressBar.style.width = '100%';
+        status.textContent = 'Done! Downloading...';
+
+        const data = await ffmpeg.readFile('out.mp4');
+        const url = URL.createObjectURL(new Blob([data.buffer], {type: 'video/mp4'}));
+
+        downloadLink.href = url;
+        downloadLink.download = 'video.mp4';
+        downloadLink.style.display = 'inline-block';
+        downloadLink.click();
+
+      } catch (e) {
+        console.error(e);
+        status.textContent = 'Failed: ' + (e.message || 'Low memory or other error');
+        progressBar.style.background = 'linear-gradient(90deg, #c00, #f44)';
+      }
+    }
+
+    window.convert = convert;
+  </script>
+</body>
+  </html>
