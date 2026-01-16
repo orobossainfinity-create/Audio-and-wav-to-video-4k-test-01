@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image + Audio → Video – 50 MB Max (Low Memory Mode)</title>
+  <style>
+    body { background:#000; color:#ffd700; font-family:Arial,sans-serif; margin:0; padding:20px; text-align:center; }
+    .warning { background:#300; border:1px solid #c00; padding:15px; margin:20px auto; max-width:600px; border-radius:8px; }
+    input[type=text] { width:100%; max-width:500px; padding:12px; margin:10px 0; font-size:16px; }
+    button { padding:12px 30px; font-size:18px; background:#d4af37; color:#000; border:none; border-radius:8px; cursor:pointer; }
+    #status { margin:20px 0; font-size:18px; min-height:40px; }
+    .progress { width:100%; max-width:500px; height:20px; background:#111; margin:15px auto; border-radius:10px; overflow:hidden; display:none; }
+    .progress-bar { height:100%; width:0%; background:#ffd700; transition:width 0.5s; }
+  </style>
+</head>
+<body>
+
+  <h1>Video Creator – 50 MB Limit</h1>
+
+  <div class="warning">
+    <strong>Important for low-memory phones:</strong><br>
+    Total (image + audio) must be <strong>≤ 50 MB</strong>.<br>
+    Use URLs only. File picker may crash.<br>
+    Start with very small files to test.
+  </div>
+
+  <label>Image URL (jpg/png):</label><br>
+  <input type="text" id="imgUrl" placeholder="https://i.imgur.com/tiny.jpg"><br>
+
+  <label>Audio URL (mp3/wav):</label><br>
+  <input type="text" id="audUrl" placeholder="https://example.com/short.mp3"><br>
+
+  <button onclick="start()">Start Conversion</button>
+
+  <div id="status"></div>
+  <div class="progress" id="prog"><div class="progress-bar" id="bar"></div></div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js';
+    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const MAX_BYTES = 50 * 1024 * 1024;
+
+    async function start() {
+      const status = document.getElementById('status');
+      const prog = document.getElementById('prog');
+      const bar = document.getElementById('bar');
+
+      status.textContent = 'Starting...';
+      prog.style.display = 'block';
+      bar.style.width = '5%';
+
+      try {
+        const imgUrl = document.getElementById('imgUrl').value.trim();
+        const audUrl = document.getElementById('audUrl').value.trim();
+        if (!imgUrl || !audUrl) throw new Error('Both URLs required');
+
+        status.textContent = 'Fetching files...';
+        bar.style.width = '20%';
+
+        const imgRes = await fetch(imgUrl);
+        const audRes = await fetch(audUrl);
+        if (!imgRes.ok || !audRes.ok) throw new Error('Invalid URLs');
+
+        const imgBuf = await imgRes.arrayBuffer();
+        const audBuf = await audRes.arrayBuffer();
+
+        const total = imgBuf.byteLength + audBuf.byteLength;
+        if (total > MAX_BYTES) throw new Error(`Total size ${Math.round(total/1024/1024)} MB > 50 MB limit`);
+
+        status.textContent = 'Loading FFmpeg engine... (may take 30–120s)';
+        bar.style.width = '35%';
+
+        const ffmpeg = new FFmpeg({ log: true });
+        const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm')
+        });
+
+        bar.style.width = '50%';
+        status.textContent = 'Encoding... (can take minutes, keep tab open)';
+
+        const audExt = audUrl.split('.').pop().toLowerCase() || 'mp3';
+        await ffmpeg.writeFile('img.jpg', new Uint8Array(imgBuf));
+        await ffmpeg.writeFile(`aud.${audExt}`, new Uint8Array(audBuf));
+
+        await ffmpeg.exec([
+          '-loop', '1', '-i', 'img.jpg',
+          '-i', `aud.${audExt}`,
+          '-c:v', 'libx264', '-crf', '28', '-preset', 'ultrafast',
+          '-vf', 'scale=854:480:force_original_aspect_ratio=decrease,pad=854:480:(ow-iw)/2:(oh-ih)/2',
+          '-c:a', 'aac', '-b:a', '96k',
+          '-shortest', '-y', 'out.mp4'
+        ]);
+
+        bar.style.width = '100%';
+        status.textContent = 'Done! Downloading...';
+
+        const data = await ffmpeg.readFile('out.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'video.mp4';
+        a.click();
+
+      } catch (e) {
+        console.error(e);
+        status.textContent = 'Error: ' + (e.message || 'Failed – probably memory limit');
+        bar.style.background = '#c00';
+      }
+    }
+  </script>
+</body>
+</html>
