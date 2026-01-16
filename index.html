@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxury Image + Audio to Video Converter – Mobile Optimized</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Great+Vibes&display=swap');
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background:#000;
+      color:#ffd700;
+      font-family:'Cinzel Decorative', cursive;
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow-x:hidden;
+      position:relative;
+    }
+
+    .particles { position:fixed; inset:0; pointer-events:none; z-index:1; background: radial-gradient(circle at top, #000033, #000000 60%); }
+
+    .particle {
+      position:absolute;
+      background:linear-gradient(135deg,#ffd700,#ffea00,#ffd700,#fff,#ffd700);
+      border-radius:50%;
+      box-shadow:0 0 10px #ffea00, 0 0 20px #ffd700, 0 0 30px rgba(255,215,0,0.3);
+      opacity:0;
+      animation:twinkle 5s infinite ease-in-out, drift 30s infinite linear;
+    }
+
+    @keyframes twinkle { 0%,100% { opacity:0; transform:scale(0.6) rotate(0deg); } 50% { opacity:1; transform:scale(1.1) rotate(180deg); } }
+    @keyframes drift { 0% { transform:translate(0,100vh); } 100% { transform:translate(0,-20vh); } }
+
+    .container {
+      position:relative;
+      z-index:10;
+      background:rgba(0,0,0,0.7);
+      backdrop-filter:blur(15px);
+      border:2px solid #d4af37;
+      border-radius:30px;
+      padding:40px;
+      max-width:720px;
+      text-align:center;
+      box-shadow:0 0 60px rgba(255,215,0,0.6);
+    }
+
+    h1 { font-family:'Great Vibes', cursive; font-size:3.8rem; margin-bottom:20px; text-shadow:0 0 30px #ffd700; }
+
+    .warning { background:rgba(139,0,0,0.4); border:1px solid #ff4040; border-radius:12px; padding:12px; margin:15px 0; font-size:1.1rem; display:block; }
+
+    .settings { margin:20px 0; font-size:1.2rem; }
+    .settings select { background:rgba(255,215,0,0.1); color:#ffd700; border:1px solid #d4af37; border-radius:10px; padding:8px; margin:10px 0; width:100%; cursor:pointer; }
+
+    .chooser { margin:20px 0; font-size:1.2rem; }
+    .chooser input[type="radio"] { margin:10px; cursor:pointer; }
+    .chooser label { cursor:pointer; }
+
+    .input-group { display:none; margin:15px 0; }
+    .input-group.active { display:block; }
+    .input-group input[type="text"] { width:100%; padding:14px; background:rgba(255,215,0,0.1); color:#ffd700; border:1px solid #d4af37; border-radius:15px; font-size:1.2rem; }
+
+    button { 
+      background:linear-gradient(135deg,#d4af37,#b8860b);
+      color:#000;
+      border:none;
+      padding:16px 50px;
+      font-size:1.4rem;
+      font-weight:bold;
+      border-radius:50px;
+      cursor:pointer;
+      margin:25px 0 10px;
+      box-shadow:0 0 25px #ffd700;
+    }
+
+    button:hover { transform:scale(1.08); }
+
+    #status { margin:20px 0; font-size:1.4rem; min-height:2em; }
+
+    .progress-container {
+      width:100%;
+      max-width:480px;
+      background:#111;
+      border-radius:50px;
+      height:26px;
+      margin:0 auto 25px;
+      overflow:hidden;
+      border:2px solid #d4af37;
+      display:none;
+    }
+
+    .progress-bar {
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#ffd700,#ffea00,#ffd700);
+      transition:width 0.5s ease;
+      box-shadow:0 0 20px #ffea00 inset;
+      position:relative;
+    }
+
+    .progress-bar::after {
+      content:'';
+      position:absolute;
+      inset:0 -100% 0 0;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent);
+      animation:shineBar 3s infinite linear;
+    }
+
+    @keyframes shineBar { 0% { transform:translateX(-100%); } 100% { transform:translateX(300%); } }
+
+    #download { display:none; margin-top:30px; padding:16px 50px; background:linear-gradient(135deg,#d4af37,#b8860b); color:#000; text-decoration:none; border-radius:50px; font-size:1.4rem; font-weight:bold; box-shadow:0 0 25px #ffd700; }
+
+    #download:hover { transform:scale(1.05); }
+  </style>
+</head>
+<body>
+
+  <div class="particles" id="particles"></div>
+
+  <div class="container">
+    <h1>Luxury Video Creator</h1>
+    <p>Image + Audio (WAV/MP3) → Video (Fully Customizable)</p>
+
+    <div class="warning">
+      ⚠️ For cheap mobiles: Use URL input if file picker crashes. Host files online (e.g., Imgur for images, free file host for audio). Encoding may take 10–60+ min.
+    </div>
+
+    <div class="settings">
+      <label for="resolution">Resolution:</label>
+      <select id="resolution">
+        <option value="480">Low (480p - Fastest, least memory)</option>
+        <option value="720" selected>Medium (720p)</option>
+        <option value="1080">High (1080p - May fail on mobile)</option>
+        <option value="2160">4K (Desktop recommended)</option>
+      </select>
+
+      <label for="quality">Quality Preset:</label>
+      <select id="quality">
+        <option value="ultrafast" selected>Ultrafast (Fastest)</option>
+        <option value="superfast">Superfast</option>
+        <option value="veryfast">Veryfast</option>
+        <option value="faster">Faster</option>
+        <option value="fast">Fast</option>
+        <option value="medium">Medium (Higher quality)</option>
+      </select>
+
+      <label for="crf">Compression (lower = better quality):</label>
+      <select id="crf">
+        <option value="28">High Compression (Small file)</option>
+        <option value="23" selected>Medium</option>
+        <option value="18">Low Compression (High quality)</option>
+        <option value="0">Lossless (Highest, slow)</option>
+      </select>
+    </div>
+
+    <div class="chooser">
+      <label><input type="radio" name="inputType" value="upload" checked> Upload from device</label>
+      <label><input type="radio" name="inputType" value="url"> Enter URLs (safer for mobile)</label>
+    </div>
+
+    <div id="uploadInputs" class="input-group active">
+      <label class="file-label">Select Image</label>
+      <input type="file" id="imageFile" accept="image/*">
+
+      <label class="file-label">Select Audio (WAV/MP3)</label>
+      <input type="file" id="audioFile" accept=".wav,.mp3">
+    </div>
+
+    <div id="urlInputs" class="input-group">
+      <label class="file-label">Image URL (e.g., https://example.com/image.jpg)</label>
+      <input type="text" id="imageUrl" placeholder="Enter image URL">
+
+      <label class="file-label">Audio URL (e.g., https://example.com/audio.wav or .mp3)</label>
+      <input type="text" id="audioUrl" placeholder="Enter audio URL">
+    </div>
+
+    <button onclick="convert()">Begin Enchantment</button>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div id="status"></div>
+
+    <a id="download">Download Your Creation</a>
+  </div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.js';
+    import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const status = document.getElementById('status');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const downloadLink = document.getElementById('download');
+    const particlesContainer = document.getElementById('particles');
+
+    // Toggle input types
+    document.querySelectorAll('input[name="inputType"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        document.getElementById('uploadInputs').classList.toggle('active', e.target.value === 'upload');
+        document.getElementById('urlInputs').classList.toggle('active', e.target.value === 'url');
+      });
+    });
+
+    function createParticles() {
+      for (let i = 0; i < 120; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        const size = Math.random() * 5 + 2;
+        particle.style.width = `${size}px`;
+        particle.style.height = particle.style.width;
+        particle.style.left = `${Math.random() * 100}vw`;
+        particle.style.top = `${Math.random() * 120}vh`;
+        particle.style.animationDelay = `${Math.random() * 12}s`;
+        particle.style.animationDuration = `${4 + Math.random() * 6}s`;
+        const hueShift = Math.random() * 30 - 15;
+        particle.style.filter = `hue-rotate(${hueShift}deg)`;
+        particlesContainer.appendChild(particle);
+      }
+    }
+    createParticles();
+
+    async function convert() {
+      status.textContent = 'Starting... (may be slow on mobile)';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '5%';
+
+      const ffmpeg = new FFmpeg({ log: true });
+
+      try {
+        status.textContent = 'Loading engine... (10–60s+)';
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+        });
+
+        progressBar.style.width = '15%';
+        status.textContent = 'Fetching/Processing inputs...';
+
+        const inputType = document.querySelector('input[name="inputType"]:checked').value;
+        let imageData, audioData, audioExt;
+
+        if (inputType === 'upload') {
+          const imageFile = document.getElementById('imageFile').files[0];
+          const audioFile = document.getElementById('audioFile').files[0];
+          if (!imageFile || !audioFile) throw new Error('Select both files.');
+          imageData = await fetchFile(imageFile);
+          audioData = await fetchFile(audioFile);
+          audioExt = audioFile.name.split('.').pop().toLowerCase();
+        } else {
+          const imageUrl = document.getElementById('imageUrl').value.trim();
+          const audioUrl = document.getElementById('audioUrl').value.trim();
+          if (!imageUrl || !audioUrl) throw new Error('Enter both URLs.');
+          const imageResp = await fetch(imageUrl);
+          const audioResp = await fetch(audioUrl);
+          if (!imageResp.ok || !audioResp.ok) throw new Error('Invalid URLs.');
+          imageData = new Uint8Array(await imageResp.arrayBuffer());
+          audioData = new Uint8Array(await audioResp.arrayBuffer());
+          audioExt = audioUrl.split('.').pop().toLowerCase();
+        }
+
+        if (!['wav', 'mp3'].includes(audioExt)) throw new Error('Only WAV/MP3.');
+
+        await ffmpeg.writeFile('input.jpg', imageData);
+        await ffmpeg.writeFile(`input.${audioExt}`, audioData);
+
+        progressBar.style.width = '25%';
+        status.textContent = 'Encoding... (5–60+ min, keep tab open!)';
+
+        const resSelect = document.getElementById('resolution').value;
+        const qualitySelect = document.getElementById('quality').value;
+        const crfSelect = document.getElementById('crf').value;
+
+        let width, height;
+        switch (resSelect) {
+          case '480': width = 854; height = 480; break;
+          case '720': width = 1280; height = 720; break;
+          case '1080': width = 1920; height = 1080; break;
+          case '2160': width = 3840; height = 2160; break;
+        }
+
+        const progressInterval = setInterval(() => {
+          let current = parseFloat(progressBar.style.width) || 0;
+          if (current < 85) {
+            progressBar.style.width = `${Math.min(85, current + Math.random() * 5 + 1)}%`;
+          }
+        }, 15000);
+
+        await ffmpeg.exec([
+          '-loop', '1',
+          '-i', 'input.jpg',
+          '-i', `input.${audioExt}`,
+          '-c:v', 'libx264',
+          '-crf', crfSelect,
+          '-preset', qualitySelect,
+          '-tune', 'stillimage',
+          '-vf', `scale=\( {width}: \){height}:force_original_aspect_ratio=decrease:flags=bilinear,pad=\( {width}: \){height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p`,
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-shortest',
+          '-y',
+          'output.mp4'
+        ]);
+
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        status.textContent = 'Complete! Downloading...';
+
+        const data = await ffmpeg.readFile('output.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+
+        downloadLink.href = url;
+        downloadLink.download = `video_${resSelect}p.mp4`;
+        downloadLink.style.display = 'inline-block';
+        downloadLink.click();
+
+      } catch (err) {
+        clearInterval(progressInterval);
+        console.error(err);
+        status.textContent = 'Error: ' + (err.message || 'Try URL input, lower settings, or smaller files.');
+        progressBar.style.background = 'linear-gradient(90deg,#8b0000,#ff4040)';
+      }
+    }
+
+    window.convert = convert;
+  </script>
+</body>
+  </html>
